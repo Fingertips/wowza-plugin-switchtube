@@ -18,6 +18,7 @@ import javax.xml.bind.DatatypeConverter;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
+import com.google.gson.annotations.SerializedName;
 import com.wowza.wms.amf.AMFDataList;
 import com.wowza.wms.application.IApplicationInstance;
 import com.wowza.wms.client.IClient;
@@ -48,9 +49,11 @@ public class Callbacks extends ModuleBase implements IModuleOnConnect {
 
 	// Details sent by SWITCHtube about a channel's stream.
 	public class Stream {
-		// Name of the stream, such that the playlist URL in Wowza does not contain a
-		// stream secret.
+		// Suggested name of the stream.
 		private String name;
+		// Suggested name of the broadcast.
+		@SerializedName("broadcast_name")
+		private String broadcastName;
 
 		Stream() {
 		}
@@ -58,6 +61,8 @@ public class Callbacks extends ModuleBase implements IModuleOnConnect {
 
 	// Callback details sent to SWITCHtube.
 	public class Event {
+		@SuppressWarnings("unused")
+		private String name;
 		@SuppressWarnings("unused")
 		private String secret;
 		@SuppressWarnings("unused")
@@ -109,14 +114,51 @@ public class Callbacks extends ModuleBase implements IModuleOnConnect {
 			return callbackUrl;
 		}
 
+		public Stream performConnectCallback(String streamName) throws CallbackFailed, CallbackForbidden {
+			Event event = new Event();
+			event.name = streamName;
+			event.status = "connected";
+			return performCallbackWithRetries(event);
+		}
+
+		public Stream performPublishedCallback(String streamName, String streamSecret)
+				throws CallbackFailed, CallbackForbidden {
+			Event event = new Event();
+			event.name = streamName;
+			event.secret = streamSecret;
+			event.status = "published";
+			return performCallbackWithRetries(event);
+		}
+
+		public Stream performDisconnectedCallback(String streamName) throws CallbackFailed, CallbackForbidden {
+			Event event = new Event();
+			event.name = streamName;
+			event.status = "stopped";
+			return performCallbackWithRetries(event);
+		}
+
+		public Stream performCallbackWithRetries(Event event) throws CallbackFailed, CallbackForbidden {
+			int retries = 2;
+			while (true) {
+				try {
+					return performCallback(event);
+				} catch (CallbackFailed e) {
+					System.err.println(e.getLocalizedMessage());
+					if (--retries < 0)
+						throw e;
+					try {
+						Thread.sleep(500);
+					} catch (InterruptedException ex) {
+						ex.printStackTrace();
+					}
+				}
+			}
+		}
+
 		// Send a callback to SWITCHtube for a stream authenticated by the stream
 		// secret. Returns a stream name suggested by SWITCHtube.
-		public String performCallback(String streamSecret, String status) throws CallbackFailed, CallbackForbidden {
+		public Stream performCallback(Event event) throws CallbackFailed, CallbackForbidden {
 			Gson gson = new Gson();
-
-			Event event = new Event();
-			event.secret = streamSecret;
-			event.status = status;
 			String payload = gson.toJson(event);
 
 			String newt = generateNewt();
@@ -167,32 +209,13 @@ public class Callbacks extends ModuleBase implements IModuleOnConnect {
 						.collect(Collectors.joining("\n"));
 				try {
 					Stream stream = gson.fromJson(json, Stream.class);
-					return stream.name;
+					return stream;
 				} catch (JsonSyntaxException e) {
 					System.out.println(json);
 					throw new CallbackFailed("Failed to parse JSON response: " + e.getLocalizedMessage());
 				}
 			} catch (IOException e) {
 				throw new CallbackFailed("Failed to read callback response body: " + e.getLocalizedMessage());
-			}
-		}
-
-		public String performCallbackWithRetries(String streamSecret, String status)
-				throws CallbackFailed, CallbackForbidden {
-			int retries = 2;
-			while (true) {
-				try {
-					return performCallback(streamSecret, status);
-				} catch (CallbackFailed e) {
-					System.err.println(e.getLocalizedMessage());
-					if (--retries < 0)
-						throw e;
-					try {
-						Thread.sleep(500);
-					} catch (InterruptedException ex) {
-						ex.printStackTrace();
-					}
-				}
 			}
 		}
 
@@ -222,16 +245,16 @@ public class Callbacks extends ModuleBase implements IModuleOnConnect {
 			getLogger().info("Rejected connection because the callback is not configured properly.");
 			client.rejectConnection();
 		} else {
-			// Make sure the stream secret is value during connect because it's the only
-			// time we can reject the connection.
-			String streamSecret = client.getQueryStr();
+			// Report the intent to connect a stream using its stream name and use the
+			// callback response to determine if the client is allowed to connect.
+			IApplicationInstance applicationInstance = getAppInstance(client);
 			try {
-				String streamName = reporter.performCallbackWithRetries(streamSecret, "connected");
-				if (streamName.isEmpty()) {
-					getLogger().info("Connection rejected because stream name is emtpy.");
+				Stream stream = reporter.performConnectCallback(applicationInstance.getName());
+				if (stream == null) {
+					getLogger().info("Connection rejected because stream could not be found.");
 					client.rejectConnection();
 				} else {
-					getLogger().info("Allowing connection for stream with name: " + streamName);
+					getLogger().info("Allowing connection for stream with name: " + stream.name);
 				}
 			} catch (CallbackFailed e) {
 				getLogger().info("Connection rejected because callback failed: " + e.getLocalizedMessage());
@@ -247,25 +270,24 @@ public class Callbacks extends ModuleBase implements IModuleOnConnect {
 		if (this.reporter == null)
 			return;
 
-		// Force the stream name to the name suggested by SWITCHtube so a broadcaster
-		// can't create streams with random names.
-		String streamSecret = client.getQueryStr();
+		// Report the intent to publish a stream using its stream name and stream key.
+		// Use the response status to determine authorization to publish the stream. Use
+		// the returned stream name as the actual stream name.
+		IApplicationInstance applicationInstance = getAppInstance(client);
+		String streamSecret = params.getString(PARAM1);
 		try {
-
-			String streamName = reporter.performCallbackWithRetries(streamSecret, "published");
-			if (streamName.isEmpty()) {
-				getLogger().info("Stop the stream because the stream name is empty.");
-				client.rejectConnection();
-			} else {
-				getLogger().info("Using stream name: " + streamName);
-				params.set(PARAM1, streamName);
-			}
+			Stream stream = reporter.performPublishedCallback(applicationInstance.getName(), streamSecret);
+			getLogger().info("Using broadcast name: " + stream.broadcastName);
+			// Wowza will use the stream key in the public URL for the playlist if we don't
+			// set this parameter. By setting the parameter the URL will start with
+			// /{applicationName/{streamName}/{streamBroadcastName}
+			params.set(PARAM1, stream.broadcastName);
 		} catch (CallbackFailed e) {
 			getLogger().info("Stream stopped because callback failed: " + e.getLocalizedMessage());
-			client.rejectConnection();
+			client.shutdownClient();
 		} catch (CallbackForbidden e) {
 			getLogger().info("Stream stopped because callback was forbidden: " + e.getLocalizedMessage());
-			client.rejectConnection();
+			client.shutdownClient();
 		}
 
 		invokePrevious(client, function, params);
@@ -285,9 +307,9 @@ public class Callbacks extends ModuleBase implements IModuleOnConnect {
 			return;
 
 		// Let SWITCHtube know the stream disconnected.
-		String streamSecret = client.getQueryStr();
+		IApplicationInstance applicationInstance = getAppInstance(client);
 		try {
-			reporter.performCallbackWithRetries(streamSecret, "stopped");
+			reporter.performDisconnectedCallback(applicationInstance.getName());
 		} catch (CallbackFailed | CallbackForbidden e) {
 			getLogger().info("Failed to report disconnection: " + e.getLocalizedMessage());
 		}

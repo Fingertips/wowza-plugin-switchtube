@@ -4,6 +4,10 @@ Implements a `Callback` module for Wowza to authorize incoming RTMP connections 
 
 ## Configuration
 
+In order to integrate with SWITCHtube an application needs a number of settings and features.
+
+Add the following to `application_name/Application.xml`:
+
 * **SWITCHtubeCallbackUrl**: URL to the SWITCHtube install, usually `https://tube.switch.ch/streaming/events`
 * **SWITCHtubeCallbackSecret**: Shared secret between the module and SWITCHtube, used to authenticate the Wowza server.
 
@@ -30,3 +34,11 @@ These properties have to be set for application that loads the module.
   </Property>
 </Properties>
 ```
+
+Then make sure:
+
+* Apple HLS is enabled
+* nDVR is enabled
+    * Live and DVR streaming
+    * Start recording on startup
+    * Archive Method is Append
