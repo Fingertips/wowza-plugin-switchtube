@@ -38,3 +38,4 @@ jobs:
         with:
           name: wowza-plugin-switchtube
           path: ./dist/*.jar
+          retention-days: 3

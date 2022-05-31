@@ -9,10 +9,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v3
-        with:
-          name: wowza-plugin-switchtube
-          path: .
+      - name: Download latest build artifact
+        run: |
+          gh api "$(gh api repos/{owner}/{repo}/actions/artifacts | jq --raw-output '.artifacts[0].archive_download_url')" > wowza-plugin-switchtube.zip
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
