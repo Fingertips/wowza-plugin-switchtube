@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download latest build artifact
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN_GITHUB }}
         run: |
           gh api "$(gh api repos/{owner}/{repo}/actions/artifacts | jq --raw-output '.artifacts[0].archive_download_url')" > wowza-plugin-switchtube.zip
       - name: Release
