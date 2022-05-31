@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="wowza-plugin-switchtube" default="main" basedir=".">
+  <path id="class.path">
+    <fileset dir="/usr/local/WowzaStreamingEngine/lib">
+      <include name="**/*.jar"/>
+    </fileset>
+  </path>
+  <property name="src.dir" location="src"/>
+  <property name="build.dir" location="./build"/>
+  <property name="dist.dir" location="./dist"/>
+  <target name="main" depends="clean, compile, dist"/>
+  <target name="init">
+    <mkdir dir="${build.dir}"/>
+    <mkdir dir="${dist.dir}"/>
+  </target>
+  <target name="clean">
+    <delete dir="${build.dir}"/>
+    <delete dir="${dist.dir}"/>
+  </target>
+  <target name="compile" depends="init">
+    <javac includeantruntime="false" srcdir="${src.dir}" destdir="${build.dir}">
+      <classpath refid="class.path"/>
+    </javac>
+  </target>
+  <target name="dist" depends="compile">
+    <jar jarfile="${dist.dir}/wowza-plugin-switchtube.jar" basedir="${build.dir}">
+      <manifest>
+        <attribute name="Main-Class" value="${projectName}/AntProject"/>
+      </manifest>
+    </jar>
+  </target>
+</project>
