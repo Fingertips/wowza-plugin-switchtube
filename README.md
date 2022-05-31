@@ -42,3 +42,17 @@ Then make sure:
     * Live and DVR streaming
     * Start recording on startup
     * Archive Method is Append
+
+## Releases
+
+GitHub workflows will take care of creating the release as soon and you create a new tag and push it to the repository.
+
+```
+# Fetch all tags so you know the version number of the latest release.
+git fetch
+git tag
+
+# Create an push a new tag.
+git tag "v0.0.1"
+git push origin "v0.0.1"
+```
