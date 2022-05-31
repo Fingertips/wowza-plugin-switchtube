@@ -1,0 +1,19 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: wowza-plugin-switchtube
+          path: .
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: wowza-plugin-switchtube.zip

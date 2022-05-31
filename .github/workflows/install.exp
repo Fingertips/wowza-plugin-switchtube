@@ -1,0 +1,30 @@
+#!/usr/bin/expect -f
+
+set WOWZA_LICENSE_KEY [lindex $argv 0]
+
+spawn ./WowzaStreamingEngine-4.8.18+1-linux-x64-installer.run
+match_max 100000
+
+expect {
+    -ex "Press \[Enter\] to continue:" { send "\n"; exp_continue }
+    -ex "Do you accept this agreement? \[y/n\]: "
+}
+send "y\n"
+
+expect -ex "License Key: \[\]: "
+send -- "$WOWZA_LICENSE_KEY\n"
+
+expect -ex "User Name: \[\]: "
+send "admin\n"
+
+expect -ex "Password: :"
+send "secret\n"
+expect -ex "Confirm Password: :"
+send "secret\n"
+
+expect -ex "Start Wowza Streaming Engine automatically \[Y/n\]: "
+send "n\n"
+
+expect -ex "Do you want to continue? \[Y/n\]: "
+send "y\n"
+expect eof
