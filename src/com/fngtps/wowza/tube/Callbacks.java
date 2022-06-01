@@ -138,6 +138,7 @@ public class Callbacks extends ModuleBase implements IModuleOnConnect {
 		}
 
 		public Stream performCallbackWithRetries(Event event) throws CallbackFailed, CallbackForbidden {
+			// One original request and 2 retries.
 			int retries = 2;
 			while (true) {
 				try {
@@ -248,8 +249,16 @@ public class Callbacks extends ModuleBase implements IModuleOnConnect {
 			// Report the intent to connect a stream using its stream name and use the
 			// callback response to determine if the client is allowed to connect.
 			IApplicationInstance applicationInstance = getAppInstance(client);
+			String streamName = applicationInstance.getName();
+
+			if (streamName == null || streamName.isEmpty() || streamName == "_definst_") {
+				getLogger().info("Application instance did not return a useful stream name: " + streamName);
+				client.rejectConnection();
+			}
+			getLogger().info("Performing connect callback with stream name: " + streamName);
+
 			try {
-				Stream stream = reporter.performConnectCallback(applicationInstance.getName());
+				Stream stream = reporter.performConnectCallback(streamName);
 				if (stream == null) {
 					getLogger().info("Connection rejected because stream could not be found.");
 					client.rejectConnection();
