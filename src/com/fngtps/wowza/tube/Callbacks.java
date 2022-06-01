@@ -283,7 +283,15 @@ public class Callbacks extends ModuleBase implements IModuleOnConnect {
 		// Use the response status to determine authorization to publish the stream. Use
 		// the returned stream name as the actual stream name.
 		IApplicationInstance applicationInstance = getAppInstance(client);
+		// The stream secret (aka. stream key) will be in the params if set.
 		String streamSecret = params.getString(PARAM1);
+		// When the client did not provide a stream secret we try to use the query part
+		// of the URL.
+		if (streamSecret == null || streamSecret.isEmpty()) {
+			getLogger().info("Stream secret is not present, attempting to use query part of the connection URL.");
+			streamSecret = client.getQueryStr();
+		}
+		getLogger().info("Using stream secret: " + streamSecret);
 		try {
 			Stream stream = reporter.performPublishedCallback(applicationInstance.getName(), streamSecret);
 			getLogger().info("Using broadcast name: " + stream.broadcastName);
