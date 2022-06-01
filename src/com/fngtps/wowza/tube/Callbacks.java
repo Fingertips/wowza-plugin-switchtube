@@ -138,6 +138,7 @@ public class Callbacks extends ModuleBase implements IModuleOnConnect {
 		}
 
 		public Stream performCallbackWithRetries(Event event) throws CallbackFailed, CallbackForbidden {
+			// One original request and 2 retries.
 			int retries = 2;
 			while (true) {
 				try {
@@ -248,8 +249,16 @@ public class Callbacks extends ModuleBase implements IModuleOnConnect {
 			// Report the intent to connect a stream using its stream name and use the
 			// callback response to determine if the client is allowed to connect.
 			IApplicationInstance applicationInstance = getAppInstance(client);
+			String streamName = applicationInstance.getName();
+
+			if (streamName == null || streamName.isEmpty() || streamName == "_definst_") {
+				getLogger().info("Application instance did not return a useful stream name: " + streamName);
+				client.rejectConnection();
+			}
+			getLogger().info("Performing connect callback with stream name: " + streamName);
+
 			try {
-				Stream stream = reporter.performConnectCallback(applicationInstance.getName());
+				Stream stream = reporter.performConnectCallback(streamName);
 				if (stream == null) {
 					getLogger().info("Connection rejected because stream could not be found.");
 					client.rejectConnection();
@@ -274,7 +283,15 @@ public class Callbacks extends ModuleBase implements IModuleOnConnect {
 		// Use the response status to determine authorization to publish the stream. Use
 		// the returned stream name as the actual stream name.
 		IApplicationInstance applicationInstance = getAppInstance(client);
+		// The stream secret (aka. stream key) will be in the params if set.
 		String streamSecret = params.getString(PARAM1);
+		// When the client did not provide a stream secret we try to use the query part
+		// of the URL.
+		if (streamSecret == null || streamSecret.isEmpty()) {
+			getLogger().info("Stream secret is not present, attempting to use query part of the connection URL.");
+			streamSecret = client.getQueryStr();
+		}
+		getLogger().info("Using stream secret: " + streamSecret);
 		try {
 			Stream stream = reporter.performPublishedCallback(applicationInstance.getName(), streamSecret);
 			getLogger().info("Using broadcast name: " + stream.broadcastName);
