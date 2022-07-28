@@ -2,7 +2,7 @@
 
 set WOWZA_LICENSE_KEY [lindex $argv 0]
 
-spawn ./WowzaStreamingEngine-4.8.18+1-linux-x64-installer.run
+spawn ./WowzaStreamingEngine-4.8.15+3-linux-x64-installer.run
 match_max 100000
 
 expect {
