@@ -8,7 +8,7 @@ Download the latest release, unpack the zip, and copy the JAR to the Wowza Strea
 
 ```sh
 # Make sure you change the release version in the URL to the most recent release.
-curl -L -O https://github.com/Fingertips/wowza-plugin-switchtube/releases/download/v0.0.3/wowza-plugin-switchtube.zip
+curl -L -O https://github.com/Fingertips/wowza-plugin-switchtube/releases/download/v0.0.5/wowza-plugin-switchtube.zip
 unzip wowza-plugin-switchtube.zip
 mv wowza-plugin-switchtube.jar /usr/local/WowzaStreamingEngine/lib
 ```
